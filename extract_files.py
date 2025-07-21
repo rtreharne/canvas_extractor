@@ -1,12 +1,12 @@
 import os
 import requests
 import json
-import mimetypes
 from io import BytesIO
 from docx import Document
 import fitz  # PyMuPDF
 from pptx import Presentation
 from dotenv import load_dotenv
+from tqdm import tqdm  # NEW: Progress bar
 
 # --- LOAD ENVIRONMENT VARIABLES ---
 load_dotenv()
@@ -19,8 +19,8 @@ except ValueError:
     print("❌ Invalid course ID. Please enter a number.")
     exit(1)
 
-OUTPUT_DIR = "extracted_files"
-
+# Create an output directory with course_id in the name
+OUTPUT_DIR = f"extracted_files_{COURSE_ID}"
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 HEADERS = {
@@ -81,18 +81,19 @@ def process_file(file_obj):
         else:
             return  # unsupported type
 
+        clean_url = file_obj["url"].split("/download")[0]
+
         output_path = os.path.join(OUTPUT_DIR, f"{file_obj['id']}.json")
         with open(output_path, "w", encoding="utf-8") as f:
             json.dump({
                 "filename": filename,
                 "canvas_file_id": file_obj["id"],
+                "file_url": clean_url,
                 "text": text.strip()
             }, f, indent=2)
 
-        print(f"✔ Saved: {output_path}")
-
     except Exception as e:
-        print(f"✖ Failed to process {filename}: {e}")
+        print(f"\n✖ Failed to process {filename}: {e}")
 
 # --- MAIN EXECUTION ---
 
@@ -102,7 +103,7 @@ def main():
     filtered = [f for f in files if os.path.splitext(f["display_name"])[1].lower() in target_exts]
 
     print(f"Found {len(filtered)} target files.")
-    for f in filtered:
+    for f in tqdm(filtered, desc="Processing files", unit="file"):
         process_file(f)
 
 if __name__ == "__main__":
